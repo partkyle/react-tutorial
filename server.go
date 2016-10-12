@@ -94,6 +94,53 @@ func handleComments(w http.ResponseWriter, r *http.Request) {
 		// stream the contents of the file to the response
 		io.Copy(w, bytes.NewReader(commentData))
 
+	case "DELETE":
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		// Decode the JSON data
+		var comments []comment
+		if err := json.Unmarshal(commentData, &comments); err != nil {
+			http.Error(w, fmt.Sprintf("Unable to Unmarshal comments from data file (%s): %s", dataFile, err), http.StatusInternalServerError)
+			return
+		}
+
+		toDelete := r.FormValue("id")
+
+
+		idToDelete := -1
+
+		for i, c := range comments {
+			if fmt.Sprintf("%d", c.ID) == toDelete {
+				log.Println("deleting ", c)
+				idToDelete = i
+				break
+			}
+		}
+
+		if idToDelete >= 0 && idToDelete < len(comments) {
+			comments = append(comments[:idToDelete], comments[idToDelete+1:]...)
+		}
+
+		// Marshal the comments to indented json.
+		commentData, err = json.MarshalIndent(comments, "", "    ")
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Unable to marshal comments to json: %s", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Write out the comments to the file, preserving permissions
+		err := ioutil.WriteFile(dataFile, commentData, fi.Mode())
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Unable to write comments to data file (%s): %s", dataFile, err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		io.Copy(w, bytes.NewReader(commentData))
 	default:
 		// Don't know the method, so error
 		http.Error(w, fmt.Sprintf("Unsupported method: %s", r.Method), http.StatusMethodNotAllowed)

@@ -34,7 +34,7 @@ var CommentBox = React.createClass({
       }.bind(this),
       error: function(xhr, status, err) {
         this.setState({data: comments})
-        console.error(this.props.url, status, err.toString);
+        console.error(this.props.url, status, err.toString());
       }.bind(this)
     });
   },
@@ -60,14 +60,14 @@ var CommentBox = React.createClass({
       }.bind(this),
       error: function(xhr, status, err) {
         this.setState({data: comments})
-        console.error(this.props.url, status, err.toString);
+        console.error(this.props.url, status, err.toString());
       }.bind(this)
     });
   },
   render: function() {
     return (
       <div className="commentBox">
-        <CommentList data={this.state.data} onDelete={this.handleCommentDelete} />
+        <CommentList url={this.props.url} data={this.state.data} onDelete={this.handleCommentDelete} />
         <CommentForm onCommentSubmit={this.handleCommentSubmit} />
       </div>
     );
@@ -79,11 +79,9 @@ var CommentList = React.createClass({
     var onDelete = this.props.onDelete;
     var commentNodes = this.props.data.map(function(comment) {
       return (
-        <Comment author={comment.author} key={comment.id} id={comment.id} onDelete={onDelete} >
-          {comment.text}
-        </Comment>
+        <Comment url={this.props.url} author={comment.author} key={comment.id} id={comment.id} onDelete={onDelete} text={comment.text} />
       );
-    });
+    }.bind(this));
 
     return (
       <div className="commentList">
@@ -101,7 +99,7 @@ var CommentForm = React.createClass({
     this.setState({author: '', text: '', 'flash': ''});
   },
   getInitialState: function() {
-    return {author: '', text: ''};
+    return {author: this.props.author, text: this.props.text};
   },
   handleAuthorChange: function(e) {
     this.setState({author: e.target.value});
@@ -167,7 +165,7 @@ var CommentForm = React.createClass({
 var Comment = React.createClass({
   rawMarkup: function() {
     var md = new Remarkable();
-    var rawMarkup = md.render(this.props.children.toString());
+    var rawMarkup = md.render(this.state.text);
     return { __html: rawMarkup };
   },
 
@@ -175,18 +173,62 @@ var Comment = React.createClass({
     this.props.onDelete({'id': this.props.id});
   },
 
+  handleEditClick: function() {
+    this.setState({'edit': !this.state.edit});
+  },
+
+  handeCommentUpdate: function(comment) {
+    var oldComment = {'author': this.props.author, 'text': this.props.text}
+    $.ajax({
+      url: this.props.url,
+      dataType: 'json',
+      method: 'PUT',
+      data: {'id': this.props.id, 'author': comment.author, 'text': comment.text},
+      cache: false,
+      success: function(data) {
+        console.log('success')
+      }.bind(this),
+      error: function(xhr, status, err) {
+        this.setState(oldComment);
+        console.error(this.props.url, status, err.toString());
+      }.bind(this)
+    });
+
+    this.setState(comment);
+    this.setState({'edit': false});
+  },
+
+  getInitialState: function() {
+    return {'edit': false, 'author': this.props.author, 'text': this.props.text};
+  },
+
   render: function() {
+    var comment;
+
+    if (this.state.edit) {
+      comment = (
+        <CommentForm author={this.state.author} text={this.state.text} onCommentSubmit={this.handeCommentUpdate} />
+      );
+    } else {
+      comment = (
+        <div>
+          <h2 className="comment" onDoubleClick={this.handleEditClick}>
+            {this.state.author}
+          </h2>
+
+          <span dangerouslySetInnerHTML={this.rawMarkup()} />
+        </div>
+      );
+    }
+
     return (
       <div className="comment well well well">
-        <div className="delete-button">
+        <div className="buttons">
           <span className="glyphicon glyphicon-remove" aria-hidden="true" onClick={this.handleDeleteClick}></span>
+          <span className="glyphicon glyphicon-edit" aria-hidden="true" onClick={this.handleEditClick}></span>
         </div>
 
-        <h2 className="comment">
-          {this.props.author}
-        </h2>
-
-        <span dangerouslySetInnerHTML={this.rawMarkup()} />
+        {comment}
       </div>
     );
   }

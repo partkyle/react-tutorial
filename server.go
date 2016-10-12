@@ -94,11 +94,60 @@ func handleComments(w http.ResponseWriter, r *http.Request) {
 		// stream the contents of the file to the response
 		io.Copy(w, bytes.NewReader(commentData))
 
-	case "DELETE":
+	case "PUT":
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 
+		// Decode the JSON data
+		var comments []comment
+		if err := json.Unmarshal(commentData, &comments); err != nil {
+			http.Error(w, fmt.Sprintf("Unable to Unmarshal comments from data file (%s): %s", dataFile, err), http.StatusInternalServerError)
+			return
+		}
+
+		toUpdate := r.FormValue("id")
+
+
+		idxToUpdate := -1
+
+		for i, c := range comments {
+			if fmt.Sprintf("%d", c.ID) == toUpdate {
+				log.Println("editing ", c)
+				idxToUpdate = i
+				break
+			}
+		}
+
+		if idxToUpdate >= 0 && idxToUpdate < len(comments) {
+			comments[idxToUpdate].Author = r.FormValue("author")
+			comments[idxToUpdate].Text = r.FormValue("text")
+
+			log.Println(r.FormValue("text"))
+		}
+
+		log.Println("new value", comments[idxToUpdate])
+
+		// Marshal the comments to indented json.
+		commentData, err = json.MarshalIndent(comments, "", "    ")
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Unable to marshal comments to json: %s", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Write out the comments to the file, preserving permissions
+		err := ioutil.WriteFile(dataFile, commentData, fi.Mode())
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Unable to write comments to data file (%s): %s", dataFile, err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		io.Copy(w, bytes.NewReader(commentData))
+
+	case "DELETE":
 		// Decode the JSON data
 		var comments []comment
 		if err := json.Unmarshal(commentData, &comments); err != nil {

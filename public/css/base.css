@@ -63,13 +63,23 @@ ul {
   position: relative;
 }
 
-  .comment .delete-button {
-    color: red;
+  .comment .buttons {
+    height: 16px;
+  }
+
+  .comment:hover .buttons .glyphicon {
+    display: inline;
+  }
+
+  .comment .buttons .glyphicon {
     float: right;
     display: none;
+  }
+
+  .comment .buttons .glyphicon {
     cursor: pointer;
   }
 
-  .comment:hover .delete-button {
-    display: inline;
+  .comment .buttons .glyphicon-remove {
+    color: red;
   }
